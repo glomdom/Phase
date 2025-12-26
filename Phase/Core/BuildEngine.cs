@@ -43,7 +43,6 @@ public sealed class BuildEngine {
         Logger.Trace($"{exePath}");
 
         var objList = string.Join(' ', objects.Select(x => $"\"{Path.GetFullPath(x)}\""));
-        var flags = CompilerFlags.Default();
         var args = $"/Fe\"{exePath}\" {objList}";
 
         await _clang.LinkObjectsAsync(args);
