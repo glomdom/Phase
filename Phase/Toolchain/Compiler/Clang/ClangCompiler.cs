@@ -68,7 +68,5 @@ public sealed class ClangCompiler : BaseCompiler {
 
         using var process = Process.Start(processInfo);
         await process!.WaitForExitAsync();
-
-        Logger.Trace(await process.StandardError.ReadToEndAsync());
     }
 }
