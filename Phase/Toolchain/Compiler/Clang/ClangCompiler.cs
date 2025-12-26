@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Phase.Core;
 using Phase.Logging;
 using Phase.Toolchain.Configuration;
 
@@ -27,8 +28,8 @@ public sealed class ClangCompiler : BaseCompiler {
         }
 
         var processInfo = new ProcessStartInfo {
-            FileName = "clang++",
-            Arguments = $"{Flags.ToClangFlags()} {absoluteFilePath} -o {objectFilePath}",
+            FileName = "clang-cl",
+            Arguments = $"/c {Flags.ToClangFlags()} {absoluteFilePath} /Fo\"{objectFilePath}\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -38,7 +39,7 @@ public sealed class ClangCompiler : BaseCompiler {
         using var process = Process.Start(processInfo);
         await process!.WaitForExitAsync();
 
-        Logger.Trace($"> clang++ {Flags.ToClangFlags()} {absoluteFilePath} -o {objectFilePath}");
+        Logger.Trace($"> clang-cl {processInfo.Arguments}");
 
         if (process.ExitCode != 0) {
             Logger.Error($"failed to compile {absoluteFilePath}, check above for errors");
@@ -48,32 +49,26 @@ public sealed class ClangCompiler : BaseCompiler {
 
         Logger.Success($"compiled {fileNameNoExt}");
 
-        await Task.Run(() => RunJanitor(fileNameNoExt, hash));
+        await Task.Run(() => Janitor.Cleanup(fileNameNoExt, hash));
 
         return true;
     }
 
-    private void RunJanitor(string fileName, string hash) {
-        var pattern = $"{fileName}.*.o";
-        var dir = Path.GetFullPath("./.phase/objects/");
+    public async Task LinkObjectsAsync(string args) {
+        var processInfo = new ProcessStartInfo {
+            FileName = "clang-cl",
+            Arguments = args,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
 
-        Logger.Trace($"running janitor inside {dir}");
+        Logger.Trace($"> clang-cl {args}");
 
-        foreach (var file in Directory.GetFiles(dir, pattern)) {
-            var filename = Path.GetFileName(file);
+        using var process = Process.Start(processInfo);
+        await process!.WaitForExitAsync();
 
-            if (file.Contains(hash)) {
-                Logger.Trace($"janitor located {hash}, skipping");
-
-                continue;
-            }
-
-            try {
-                File.Delete(file);
-                Logger.Trace($"janitor deleted artifact {filename}");
-            } catch (IOException) {
-                Logger.Warning($"janitor cannot delete artifact {filename}");
-            }
-        }
+        Logger.Trace(await process.StandardError.ReadToEndAsync());
     }
 }

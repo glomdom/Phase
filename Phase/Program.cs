@@ -15,7 +15,8 @@ internal static class Program {
         Logger.Trace($"has sources: {string.Join(", ", proj.Sources)}");
         Logger.Trace($"will compile with {proj.Flags.ToClangFlags()}");
 
-        await proj.CompileAsync();
+        var engine = new BuildEngine(proj.Flags);
+        await engine.BuildProjectAsync(proj);
 
         await Logger.ShutdownAsync();
     }
